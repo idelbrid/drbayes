@@ -2,16 +2,16 @@ import torch
 import numpy as np
 from torch.utils.data import TensorDataset, DataLoader
 
-from swag import utils
-from swag.posteriors.proj_model import SubspaceModel
-from swag.posteriors import SWAG, BenchmarkVIModel, EllipticalSliceSampling
-from swag.posteriors import BenchmarkVINFModel
-from swag.posteriors.realnvp import RealNVP, construct_flow
+from subspace_inference import utils
+from subspace_inference.posteriors.proj_model import SubspaceModel
+from subspace_inference.posteriors import SWAG, BenchmarkVIModel, EllipticalSliceSampling
+from subspace_inference.posteriors import BenchmarkVINFModel
+from subspace_inference.posteriors.realnvp import RealNVP, construct_flow
 
 import copy
 
-from pyro.infer.mcmc import NUTS
-import pyro.distributions as dist
+# from pyro.infer.mcmc import NUTS
+# import pyro.distributions as dist
 
 def adjust_learning_rate(optimizer, factor):
     for param_group in optimizer.param_groups:
@@ -81,7 +81,7 @@ class RegressionRunner:
 
     def train(self, model, loader, optimizer, criterion, lr_init=1e-2, epochs=3000, 
         swag_model=None, swag=False, swag_start=2000, swag_freq=50, swag_lr=1e-3,
-        print_freq=100, use_cuda=False, const_lr=False):
+        print_freq=1, use_cuda=False, const_lr=False):
         # copied from pavels regression notebook
         if const_lr:
             lr = lr_init
@@ -106,9 +106,9 @@ class RegressionRunner:
             train_res_list.append(train_res)
             if swag and epoch > swag_start:
                 swag_model.collect_model(model)
-            
-            if (epoch % print_freq == 0 or epoch == epochs - 1):
-                print('Epoch %d. LR: %g. Loss: %.4f' % (epoch, lr, train_res['loss']))
+            print("HEY")
+            # if (epoch % print_freq == 0 or epoch == epochs - 1):
+            print('Epoch %d. LR: %g. Loss: %.4f' % (epoch, lr, train_res['loss']))
 
         return train_res_list
 

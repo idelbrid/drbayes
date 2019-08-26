@@ -86,7 +86,7 @@ class RegressionRunner(RegressionModel):
 
     def train(self, model, loader, optimizer, criterion, lr_init=1e-2, epochs=3000, 
         swag_model=None, swag=False, swag_start=2000, swag_freq=50, swag_lr=1e-3,
-        print_freq=100, use_cuda=False, const_lr=False):
+        print_freq=3, use_cuda=False, const_lr=False):
         # copied from pavels regression notebook
         if const_lr:
             lr = lr_init

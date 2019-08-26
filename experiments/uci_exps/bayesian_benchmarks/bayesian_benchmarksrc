@@ -1,6 +1,6 @@
 [paths]
 #data_path = /share/nikola/export/wm326/bb_data
-data_path = ./data/
+data_path = /Users/idelbridge/Scalable_GPs/
 results_path = ./results/results.db
 
 [seeds]
