@@ -94,3 +94,18 @@ class SWAG(torch.nn.Module):
         else:
             self.fit()
             return mean.clone(), variance.clone(), self.cov_factor.clone()
+
+
+class ASLSWAG(SWAG):
+    def fit(self, sample_points):
+        if self.cov_factor is not None:
+            return
+        self.cov_factor = self.subspace.get_space(self.base_model, sample_points)
+
+    def get_space(self, sample_points, export_cov_factor=True):
+        mean, variance = self._get_mean_and_variance()
+        if not export_cov_factor:
+            return mean.clone(), variance.clone()
+        else:
+            self.fit(sample_points)
+            return mean.clone(), variance.clone(), self.cov_factor.clone()

@@ -187,3 +187,34 @@ class FreqDirSpace(CovarianceSpace):
             self.normalized = True
         curr_rank = min(self.rank.item(), self.max_rank)
         return self.cov_mat_sqrt[:curr_rank].clone() / max(1, self.num_models.item() - 1) ** 0.5
+
+
+@Subspace.register_subclass('asl')
+class ASLSpace(Subspace):
+    def __init__(self, num_parameters, max_rank=20, param_sample_method='iterates', **kwargs):
+        super(ASLSpace, self).__init__()
+        assert param_sample_method in ['iterates', 'gaussian']
+
+        self.num_parameters = num_parameters
+        self.max_rank = max_rank
+        self.param_sample_method = param_sample_method
+        self._iterates = []
+        self.kwargs = kwargs
+
+    def collect_vector(self, vector):
+        if self.param_sample_method == 'iterates':
+            self._iterates.append(vector)
+        elif self.param_sample_method == 'gaussian':
+            pass
+            # torch.randn(self.kwargs['scale']
+
+    def _get_param_sample_points(self):
+        if self.param_sample_method == 'iterates':
+            return self._iterates
+        elif self.param_sample_method == 'gaussian':
+            return torch.randn(self.kwargs['num_param_samples'], self.num_parameters) * self.kwargs['scale']
+
+    def get_space(self, model, data_sample_points):
+        from ..utils import functional_change_factory, get_active_subspace
+        func = functional_change_factory(model, data_sample_points)
+        return get_active_subspace(func, self._get_param_sample_points(), model, n_dim=self.max_rank)
