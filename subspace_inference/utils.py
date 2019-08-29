@@ -298,6 +298,7 @@ def set_weights(model, vector, device=None):
         param.data.copy_(vector[offset:offset + param.numel()].view(param.size()).to(device))
         offset += param.numel()
 
+
 def extract_parameters(model):
     params = []	
     for module in model.modules():	
@@ -309,6 +310,7 @@ def extract_parameters(model):
             module._parameters.pop(name)	
     return params
 
+
 def set_weights_old(params, w, device):	
     offset = 0
     for module, name, shape in params:
@@ -316,3 +318,41 @@ def set_weights_old(params, w, device):
         value = w[offset:offset + size]
         setattr(module, name, value.view(shape).to(device))	
         offset += size
+
+
+def get_active_subspace(func, sample_points, model, n_dim=20, pct_var_explained=-1):
+
+    grads = []
+    for i in range(len(sample_points)):
+        for p in model.parameters():
+            if p.grad is not None:
+                p.grad.detach_()
+                p.grad.zero_()
+        f = func(sample_points[i])
+        f.backward()
+        grads.append(flatten([p.grad for p in model.parameters()]))
+
+    grads = torch.stack(grads).numpy()
+    from sklearn.decomposition import PCA
+    n_dim = min([n_dim, grads.shape[0], grads.shape[1]])
+    pca = PCA(n_components=n_dim)
+    pca.fit(grads)
+    if n_dim is None:
+        if pct_var_explained <= 0 or pct_var_explained > 1:
+            raise ValueError("Invalid argument pct_var_explained")
+        else:
+            s = np.cumsum(pca.explained_variance_ratio_)
+            n_dim = (s <= pct_var_explained).sum()
+
+    return torch.from_numpy(pca.components_[:n_dim])
+
+
+def functional_change_factory(model, sample_points):
+    # TODO: this is wrong. Fix it. Should have absolute around the grad, not the f.... ?
+    def functional_change(params):
+        set_weights(model, params)
+        return model(sample_points).abs().mean()
+    return functional_change
+
+
+

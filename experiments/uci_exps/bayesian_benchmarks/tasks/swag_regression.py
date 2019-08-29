@@ -9,6 +9,7 @@ from subspace_inference import models, losses, posteriors, utils
 from regression import run
 from bayesian_benchmarks.data import get_regression_data
 from bayesian_benchmarks.models.nnet.models import RegressionRunner, ESSRegRunner, VIRegRunner
+from bayesian_benchmarks.tasks.regression_runner import ASLESSRegRunner
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", default='RegNet', nargs='?', type=str)
@@ -30,7 +31,7 @@ parser.add_argument('--swag_start', type=float, default=161, metavar='N', help='
 parser.add_argument('--swag_lr', type=float, default=0.02, metavar='LR', help='SWA LR (default: 0.02)')
 parser.add_argument('--swag_c_epochs', type=int, default=1, metavar='N',
                     help='SWA model collection frequency/cycle length in epochs (default: 1)')
-parser.add_argument('--subspace', type=str, choices=['covariance', 'pca','freq_dir','random'])
+parser.add_argument('--subspace', type=str, choices=['covariance', 'pca','freq_dir','random', 'asl'])
 parser.add_argument('--max_num_models', type=int, default=20, help='maximum number of SWAG models to save')
 parser.add_argument('--num_samples', type=int, default=30, help='number of monte carlo samples to draw')
 parser.add_argument('--scale', type=float, default=0.5, help='scale for SWAG+ samples')
@@ -43,7 +44,7 @@ parser.add_argument('--noise_var', action='store_true', help='whether NN should 
 parser.add_argument('--no_schedule', action='store_true', help='store schedule')
 
 parser.add_argument('--save_iterates', action='store_true', help='save all iterates in the SWA(G) stage (default: off)')
-parser.add_argument('--inference', choices=['low_rank_gaussian', 'projected_sgd', 'ess', 'nuts', 'vi'], default='low_rank_gaussian')
+parser.add_argument('--inference', choices=['low_rank_gaussian', 'projected_sgd', 'ess', 'nuts', 'vi', 'asless'], default='low_rank_gaussian')
 parser.add_argument('--prior_std', type=float, default=1.0, help='std of the prior distribution')
 
 parser.add_argument('--temperature', type=float, default=None, help='temperature of posterior')
@@ -130,6 +131,14 @@ if args.inference == 'nuts':
 if args.inference == 'vi':
     regclass = VIRegRunner
     extra_args = {'prior_log_sigma':math.log(args.prior_std), 'temperature':args.temperature}
+if args.inference == 'asless':
+    regclass = ASLESSRegRunner
+    extra_args = {'temperature': args.temperature}
+
+if args.subspace == 'asl':
+    subspace_kwargs = {'max_rank': 20}
+else:
+    subspace_kwargs = {'max_rank': args.max_num_models}
 
 # define a regressionrunner class to fit w/in confines of regression.py
 regression_model = regclass(
@@ -137,7 +146,7 @@ regression_model = regclass(
     epochs = args.epochs,
     criterion = criterion,
     batch_size=args.batch_size,
-    subspace_type=args.subspace, subspace_kwargs={'max_rank':args.max_num_models},
+    subspace_type=args.subspace, subspace_kwargs=subspace_kwargs,
     momentum = args.momentum, wd=args.wd, lr_init=args.lr_init,
     swag_lr = args.swag_lr, swag_freq = 1, swag_start = args.swag_start,
     use_cuda = torch.cuda.is_available(), use_swag = args.swag,
