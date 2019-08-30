@@ -332,7 +332,7 @@ def get_active_subspace(func, sample_points, model, n_dim=20, pct_var_explained=
         f.backward()
         grads.append(flatten([p.grad for p in model.parameters()]))
 
-    grads = torch.stack(grads).numpy()
+    grads = torch.stack(grads).to('cpu').numpy()
     from sklearn.decomposition import PCA
     n_dim = min([n_dim, grads.shape[0], grads.shape[1]])
     pca = PCA(n_components=n_dim)
@@ -344,7 +344,7 @@ def get_active_subspace(func, sample_points, model, n_dim=20, pct_var_explained=
             s = np.cumsum(pca.explained_variance_ratio_)
             n_dim = (s <= pct_var_explained).sum()
 
-    return torch.from_numpy(pca.components_[:n_dim])
+    return torch.from_numpy(pca.components_[:n_dim]).to(sample_points[0].device)
 
 
 def functional_change_factory(model, sample_points):

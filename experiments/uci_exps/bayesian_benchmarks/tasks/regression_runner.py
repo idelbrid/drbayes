@@ -379,7 +379,12 @@ class ASLESSRegRunner(RegressionRunner):
             results = super().fit(features, labels)
             raise NotImplementedError("Not implemented...")
 
-        mean, var, cov = self.swag_model.get_space(torch.FloatTensor(meas_features))  # special subspace class requires measurement points.
+        if self.use_cuda:
+            device = torch.device('cuda')
+        else:
+            device = torch.device('cpu')
+
+        mean, var, cov = self.swag_model.get_space(torch.FloatTensor(meas_features).to(device))  # special subspace class requires measurement points.
         if self.use_cuda:
             mean, cov = mean.cuda(), cov.cuda()
 
