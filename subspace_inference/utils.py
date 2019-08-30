@@ -333,22 +333,23 @@ def get_active_subspace(func, sample_points, model, n_dim=20, pct_var_explained=
         grads.append(flatten([p.grad for p in model.parameters()]))
 
     grads = torch.stack(grads).to('cpu').numpy()
-    from sklearn.decomposition import PCA
+    from sklearn.decomposition import TruncatedSVD
     n_dim = min([n_dim, grads.shape[0], grads.shape[1]])
-    pca = PCA(n_components=n_dim)
-    pca.fit(grads)
+    svd = TruncatedSVD(n_components=n_dim, n_iter=7, random_state=123456)
+    svd.fit(grads)
+
     if n_dim is None:
         if pct_var_explained <= 0 or pct_var_explained > 1:
-            raise ValueError("Invalid argument pct_var_explained")
+            raise ValueError("Invalid value for pct_var_explained")
         else:
-            s = np.cumsum(pca.explained_variance_ratio_)
-            n_dim = (s <= pct_var_explained).sum()
+            raise NotImplementedError()
+            # s = np.cumsum(svd.explained_variance_ratio_)
+            # n_dim = (s <= pct_var_explained).sum()
 
-    return torch.from_numpy(pca.components_[:n_dim]).to(sample_points[0].device)
+    return torch.from_numpy(svd.components_[:n_dim]).to(sample_points[0].device)
 
 
 def functional_change_factory(model, sample_points):
-    # TODO: this is wrong. Fix it. Should have absolute around the grad, not the f.... ?
     def functional_change(params):
         set_weights(model, params)
         return model(sample_points).abs().mean()
