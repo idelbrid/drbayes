@@ -215,6 +215,7 @@ class ASLSpace(Subspace):
             return torch.randn(self.kwargs['num_param_samples'], self.num_parameters) * self.kwargs['scale']
 
     def get_space(self, model, data_sample_points):
-        from ..utils import functional_change_factory, get_active_subspace
-        func = functional_change_factory(model, data_sample_points)
-        return get_active_subspace(func, self._get_param_sample_points(), model, n_dim=self.max_rank)
+        # from ..utils import functional_change_factory, get_active_subspace
+        from ..utils import get_alt_active_subspace1, get_alt_active_subspace2
+        # func = functional_change_factory(model, data_sample_points)
+        return get_alt_active_subspace1(data_sample_points, self._get_param_sample_points(), model, n_dim=self.max_rank)
