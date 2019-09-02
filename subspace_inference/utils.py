@@ -320,18 +320,14 @@ def set_weights_old(params, w, device):
         offset += size
 
 
-def get_active_subspace(func, sample_points, model, n_dim=20, pct_var_explained=-1):
+def _zero_grad(model):
+    for p in model.parameters():
+        if p.grad is not None:
+            p.grad.detach_()
+            p.grad.zero_()
 
-    grads = []
-    for i in range(len(sample_points)):
-        for p in model.parameters():
-            if p.grad is not None:
-                p.grad.detach_()
-                p.grad.zero_()
-        f = func(sample_points[i])
-        f.backward()
-        grads.append(flatten([p.grad for p in model.parameters()]))
 
+def _get_active_subspace(grads, n_dim=20, pct_var_explained=-1):
     grads = torch.stack(grads).to('cpu').numpy()
     from sklearn.decomposition import TruncatedSVD
     n_dim = min([n_dim, grads.shape[0], grads.shape[1]])
@@ -346,7 +342,19 @@ def get_active_subspace(func, sample_points, model, n_dim=20, pct_var_explained=
             # s = np.cumsum(svd.explained_variance_ratio_)
             # n_dim = (s <= pct_var_explained).sum()
 
-    return torch.from_numpy(svd.components_[:n_dim]).to(sample_points[0].device)
+    return torch.from_numpy(svd.components_[:n_dim])
+
+
+def get_active_subspace(func, sample_points, model, n_dim=20, pct_var_explained=-1):
+
+    grads = []
+    for i in range(len(sample_points)):
+        _zero_grad(model)
+        f = func(sample_points[i])
+        f.backward(retain_graph=True)
+        grads.append(flatten([p.grad for p in model.parameters()]))
+
+    return _get_active_subspace(grads, n_dim, pct_var_explained).to(sample_points[0].device)
 
 
 def functional_change_factory(model, sample_points):
@@ -356,4 +364,29 @@ def functional_change_factory(model, sample_points):
     return functional_change
 
 
+def get_alt_active_subspace1(sample_points, sample_parameters, model, n_dim=20, pct_var_explained=-1):
+    grads = []
+    for i in range(len(sample_parameters)):
+        _zero_grad(model)
+        set_weights(model, sample_parameters[i])
+        grad_accum = torch.zeros_like(flatten([p.grad for p in model.parameters()]))
+        for j in range(len(sample_points)):
+            f = model(sample_points[j])
+            f.backward(retain_graph=True)
+            grad_accum += flatten([p.grad for p in model.parameters()]).abs()
+        grads.append(grad_accum)
 
+    return _get_active_subspace(grads, n_dim, pct_var_explained).to(sample_points[0].device)
+
+
+def get_alt_active_subspace2(sample_points, sample_parameters, model, n_dim=20, pct_var_explained=-1):
+    grads = []
+    for i in range(len(sample_parameters)):
+        _zero_grad(model)
+        set_weights(model, sample_parameters[i])
+        for j in range(len(sample_points)):
+            f = model(sample_points[j])
+            f.backward(retain_graph=True)
+            grads.append(flatten([p.grad for p in model.parameters()]))
+
+    return _get_active_subspace(grads, n_dim, pct_var_explained).to(sample_points[0].device)
