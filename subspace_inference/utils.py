@@ -369,11 +369,15 @@ def get_alt_active_subspace1(sample_points, sample_parameters, model, n_dim=20, 
     for i in range(len(sample_parameters)):
         _zero_grad(model)
         set_weights(model, sample_parameters[i])
-        grad_accum = torch.zeros_like(flatten([p.grad for p in model.parameters()]))
+        # grad_accum = torch.zeros_like(flatten([p.grad for p in model.parameters()]))
+        grad_accum = None
         for j in range(len(sample_points)):
             f = model(sample_points[j])
             f.backward(retain_graph=True)
-            grad_accum += flatten([p.grad for p in model.parameters()]).abs()
+            if grad_accum is None:
+                grad_accum = flatten([p.grad for p in model.parameters()]).abs()
+            else:
+                grad_accum += flatten([p.grad for p in model.parameters()]).abs()
         grads.append(grad_accum)
 
     return _get_active_subspace(grads, n_dim, pct_var_explained).to(sample_points[0].device)
