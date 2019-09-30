@@ -389,7 +389,7 @@ def get_alt_active_subspace2(sample_points, sample_parameters, model, n_dim=20, 
         _zero_grad(model)
         set_weights(model, sample_parameters[i])
         for j in range(len(sample_points)):
-            f = model(sample_points[j])
+            f = model(sample_points[j:j+1])
             f.backward(retain_graph=True)
             grads.append(flatten([p.grad for p in model.parameters()]).to('cpu'))
 
