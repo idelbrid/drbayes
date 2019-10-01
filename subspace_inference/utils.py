@@ -399,6 +399,27 @@ def get_alt_active_subspace2(sample_points, sample_parameters, model, n_dim=20, 
     return _get_active_subspace(grads, n_dim, pct_var_explained).to(sample_points[0].device)
 
 
+def online_get_active_subspace(sample_points, sample_parameters, model, n_dim=20, init_step_size=5., n_iters=1000,
+                               anneal=False):
+    """Approximate the linear map to a low-dimensional latent space with online gradient descent."""
+    def sample_grad():
+        while True:
+            _zero_grad(model)
+            i = np.random.randint(0, len(sample_points))
+            j = np.random.randint(0, len(sample_parameters))
+            set_weights(model, sample_parameters[j])
+            f = model(sample_points[i:i+1])[0,0]
+            f.backward(retain_graph=True)
+            yield flatten([p.grad for p in model.parameters()])
+
+    online_svd(sample_grad(), len(sample_parameters[0]), n_dim, init_step_size, iters=n_iters, anneal=anneal)
+
+
+
+
+
+
+
 class LowDimMap(torch.nn.Module):
     def __init__(self, d, k):
         super().__init__()
@@ -408,7 +429,6 @@ class LowDimMap(torch.nn.Module):
         W = W / torch.norm(W, dim=0)
         self.register_parameter('W',
                                 torch.nn.Parameter(W, requires_grad=True))
-
 
     def forward(self, x):
         return x.matmul(self.W).matmul(self.W.transpose(0, 1))
@@ -426,7 +446,7 @@ def online_svd(sampler_oracle, d, k, init_step_size, iters, anneal=False):
     """
 
     ldm = LowDimMap(d, k)
-    optim = torch.optim.SGD(lmd.parameters(), lr=init_step_size)
+    optim = torch.optim.SGD(ldm.parameters(), lr=init_step_size)
     sched = torch.optim.lr_scheduler.LambdaLR(optim, lambda t: 1/math.sqrt(1+t))
     scores = []
     for iter in range(iters):
@@ -443,4 +463,4 @@ def online_svd(sampler_oracle, d, k, init_step_size, iters, anneal=False):
             sched.step()
         scores.append(loss.item())
 
-    return ldm.W, scores
+    return ldm.W.data, scores
