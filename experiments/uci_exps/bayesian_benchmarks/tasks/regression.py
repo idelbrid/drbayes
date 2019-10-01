@@ -64,6 +64,7 @@ def run(ARGS, data=None, model=None, is_test=False):
     res.update(ARGS.__dict__)
     
     if not is_test:  # pragma: no cover
+        print("HERE!!!!! DB IS {}".format(ARGS.database_path))
         with Database(ARGS.database_path) as db:
             db.write('regression', res)
 
