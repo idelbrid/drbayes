@@ -397,3 +397,50 @@ def get_alt_active_subspace2(sample_points, sample_parameters, model, n_dim=20, 
             grads.append(flatten([p.grad for p in model.parameters()]).to('cpu'))
 
     return _get_active_subspace(grads, n_dim, pct_var_explained).to(sample_points[0].device)
+
+
+class LowDimMap(torch.nn.Module):
+    def __init__(self, d, k):
+        super().__init__()
+        self.d = d
+        self.k = k
+        W = torch.randn(d, k)
+        W = W / torch.norm(W, dim=0)
+        self.register_parameter('W',
+                                torch.nn.Parameter(W, requires_grad=True))
+
+
+    def forward(self, x):
+        return x.matmul(self.W).matmul(self.W.transpose(0, 1))
+
+
+def online_svd(sampler_oracle, d, k, init_step_size, iters, anneal=False):
+    """
+
+    :param sampler_oracle: an iterable/generator that generates data samples one at a time.
+    :param d: dimensionality of the space
+    :param k: rank of the low-rank approximator
+    :param init_step_size: initial step size/learning rate size.
+    :param iters: number of iterations to continue for.
+    :return: low-rank approximation W
+    """
+
+    ldm = LowDimMap(d, k)
+    optim = torch.optim.SGD(lmd.parameters(), lr=init_step_size)
+    sched = torch.optim.lr_scheduler.LambdaLR(optim, lambda t: 1/math.sqrt(1+t))
+    scores = []
+    for iter in range(iters):
+        optim.zero_grad()
+        data = sampler_oracle.send(None)
+        pred = ldm(data)
+#         print(data - pred)
+        loss = (data - pred).pow_(2).mean() #+ subspace.W.pow(2).sum()
+#         print(data.detach().numpy(), pred.detach().numpy(), loss.item())
+        print(loss.item())
+        loss.backward()
+        optim.step()
+        if anneal:
+            sched.step()
+        scores.append(loss.item())
+
+    return ldm.W, scores
