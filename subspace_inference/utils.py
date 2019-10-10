@@ -9,6 +9,7 @@ import tqdm
 from collections import defaultdict
 from time import gmtime, strftime
 import sys
+from random import uniform
 
 import torch.nn.functional as F
 
@@ -415,11 +416,6 @@ def online_get_active_subspace(sample_points, sample_parameters, model, n_dim=20
     online_svd(sample_grad(), len(sample_parameters[0]), n_dim, init_step_size, iters=n_iters, anneal=anneal)
 
 
-
-
-
-
-
 class LowDimMap(torch.nn.Module):
     def __init__(self, d, k):
         super().__init__()
@@ -464,3 +460,54 @@ def online_svd(sampler_oracle, d, k, init_step_size, iters, anneal=False):
         scores.append(loss.item())
 
     return ldm.W.data, scores
+
+
+def sample_subspace_containing_vector(vec, k):
+    """Gram-Schidt orthogonalize the vector + indendent normal random vectors."""
+    with torch.no_grad():
+        d = len(vec)
+        vecs = [vec]
+        for i in range(k-1):
+            v = torch.randn(d)
+            for u in vecs:
+                v -= v.dot(u) * u  # subtract projection onto existing vectors
+            v = v/torch.norm(v)
+            vecs.append(v)
+
+        return torch.stack(vecs)
+
+
+def rejection_sample(prob, sample_prob, sampler, using_logs=False):
+    while True:
+        s = sampler()
+        # Only good if prob(s) is close to sample_prob(s).
+        if using_logs:
+            ratio = np.exp(prob(s) - sample_prob(s))
+        else:
+            ratio = prob(s) / sample_prob(s)
+        if uniform(0, 1) < ratio:
+            yield s
+
+
+def importance_sample(prob, sample_prob, sampler):
+    s = sampler()
+    w = prob(s) / sample_prob(s)
+    return s, w
+
+
+_V_arr = [1.]
+_S_arr = [2.]
+def hypersphere_surface_area(d):  # embedded dimension, sphere is d-1 dimensional.
+    """Compute the surface area of the d-1 dimensional hypersphere using recurrence relations.
+    See https://en.wikipedia.org/wiki/N-sphere
+    """
+    global _V_arr
+    global _S_arr
+    while d > len(_S_arr):
+        n = len(_S_arr)-1
+        _V_arr.append(_S_arr[-1] / (n+1))
+        _S_arr.append(2 * np.pi * _V_arr[-2])
+    return _S_arr[d-1]
+
+
+
